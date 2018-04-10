@@ -7,6 +7,7 @@
 import json
 import os.path
 import datetime
+import calendar
 
 
 class Cleaner:
@@ -14,21 +15,18 @@ class Cleaner:
         Docstring class
     """
     path = ""
-    _filename = '/disk_cleaner.log'
+    _filename = '/cleanlog.log'
 
-    def __init__(self, path):
+    def __init__(self, path, fn):
         """
-
         :param path:
         :return:
         """
 
         self.path = path
-        self._filename = self.path + self._filename
-        self.start()
-        self.check_disk()
+        self._filename = self.path + "/" + fn
 
-    def get_file_list(self, flags=[]):
+    def get_file_list(self, flags):
         """
          获取目录中指定的文件名
         :param flags: flags=['json','log'] 要求文件名称中包含这些字符串
@@ -45,35 +43,6 @@ class Cleaner:
                     if Cleaner.has_substring(flags, fn):
                         full_file_name = os.path.join(self.path, fn)
                         file_list.append(full_file_name)
-                else:
-                    # 默认直接返回所有文件名
-                    full_file_name = os.path.join(self.path, fn)
-                    file_list.append(full_file_name)
-
-        # 对文件名排序
-        # if (len(FileList)>0):
-        #     FileList.sort()
-
-        return file_list
-
-    @staticmethod
-    def except_extension(file_names, extensions=[]):
-        """
-         指定扩展名除外
-        :param file_names
-        :param extensions:一些扩展名
-        :return: 过滤后的文件名列表
-        """
-        file_list = []
-        if len(file_names) > 0:
-            for fn in file_names:
-                if len(extensions) > 0:
-                    #  指定扩展名除外
-                    if not Cleaner.has_extensions(extensions, fn):
-                        file_list.append(fn)
-                else:
-                    # 默认直接返回所有文件名
-                    file_list.append(fn)
         return file_list
 
     def write_log(self, msg):
@@ -82,75 +51,94 @@ class Cleaner:
         :param msg:
         :return: 不返回
         """
+
+        now_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')  # 现在
+        data = now_time + "  " + msg + "\n"
         with open(self._filename, "a") as f:
-            import datetime
-            now_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')  # 现在
-            f.write(now_time + "  " + msg)
-            f.write('\n')
+            f.write(data)
             # f.flush()
             f.close()
+        print(data)
         return
 
-    def check_disk(self, free_percent=35):
+    def check_disk(self, free_percent):
         """
+        删除一个月 检查一次剩余空间，满足条件就停止
         检查磁盘剩余空间，删除时间久的文件
-        保证磁盘剩余可用剩余量在 35%（这个看情况调整）以上
+        保证磁盘剩余可用剩余量在  如：35%（这个看情况调整）以上
 
         :param free_percent 希望保持的剩余空间的百分比
         :return:
         """
-
+        # 如果清理功能的日志文件不存在就创建
         if not (os.path.exists(self._filename)):
             self.start()
             self.write_log("The file '" + self._filename + "' not exists,so create it \n")
 
+        # 如果剩余用量不满足条件
+        if not self.is_free_percent_ok(free_percent):
+            # 时间，往前推 500 天 开始找文件
+            now = datetime.datetime.now()
+            today = datetime.date(now.year, now.month, now.day)
+            pre_500_days = now - datetime.timedelta(days=500)
+            first_day_of_delete_month = Cleaner.get_first_day_of_pre_month(pre_500_days)
+            while (not self.is_free_percent_ok(free_percent)) and first_day_of_delete_month < today:
+                self.delete_one_month(first_day_of_delete_month)
+                first_day_of_delete_month = Cleaner.get_first_day_of_next_month(first_day_of_delete_month)
+
+            usage = Cleaner.disk_usage(self.path)
+            self.write_log("After deleted, disk usage is " + str(usage) + "% , ^_^ \n")
+        else:
+            usage = Cleaner.disk_usage(self.path)
+            self.write_log("Checking done! disk usage " + str(usage) + "% , Do not to delete any file.\n")
+
+    def is_free_percent_ok(self, free_percent):
+        """
+
+        :param free_percent:
+        :return:
+        """
+
         usage = Cleaner.disk_usage(self.path)
-        if (100 - usage) < free_percent:
-            file_list = self.get_file_list(["json", "log"])
-            # -------------
+        # 如果用量 大于指定的用量
+        if usage > (100 - int(free_percent)):
+            return False
+        return True
 
-            time = datetime.datetime.now()
-            # 求该月第一天
-            first_day = datetime.date(time.year, time.month, 1)
+    def delete_one_month(self, first_day_of_month):
+        """
 
-            # 求前一个月的第一天
-            pre_month = first_day - datetime.timedelta(days=1)  # timedelta是一个不错的函数
+        :param first_day_of_month:
+        :return:
+        """
+        date_flag = first_day_of_month.strftime('%Y-%m')
+        print(date_flag, "   date_flag  115 ")
 
-            # 前一个月的第一天
-            first_day_of_pre_month = datetime.date(pre_month.year, pre_month.month, 1)
+        file_list = self.get_file_list([date_flag])
 
-            # 前一个月的 日志名称包含的字符串
-            flag = first_day_of_pre_month.strftime('%Y-%m')
+        print(date_flag + " , this month has files:" + str(len(file_list)))
+        if len(file_list) > 0:
+            self.write_log("The folder is '" + self.path + "'")
+            self.write_log("Try to delete the month " + date_flag + " files:")
+            self.write_log(date_flag + " files count:" + str(len(file_list)))
+            can_delete_files = Cleaner.except_extension(file_list, [".json", ".log"])
+            self.do_delete_files(can_delete_files)
 
-            file_list = self.get_file_list([flag])
+    def do_delete_files(self, can_delete_files):
+        """
 
-            can_delete_files = self.except_extension(file_list, [".json", ".log"])
-
-            # -----------
-
-            if len(can_delete_files) > 0:
-                json_str = json.dumps(file_list)
-                self.write_log("The free_percent is " + str(free_percent))
-                self.write_log("The folder is '" + self.path + "'")
-                self.write_log("All files (count:" + str(file_list.__len__()) + "): \n" + json_str + "\n")
-
-                self.write_log("disk usage " + str(usage) + "%, Try to delete the old files ……")
-
-                json_str = json.dumps(can_delete_files)
-                self.write_log("Can delete files (count:" + str(can_delete_files.__len__()) + "): \n" + json_str + "\n")
-
-                # 执行删除相关
-                delete_list = Cleaner.delete_files(can_delete_files)
-                json_str = json.dumps(delete_list)
-                self.write_log("Success delete files (count:" + str(delete_list.__len__()) + "): \n" + json_str + "\n")
-
-                usage = Cleaner.disk_usage(self.path)
-                self.write_log("After delete, disk usage " + str(usage) + "%  ^_^ .")
+        :param can_delete_files:
+        :param file_list:
+        :return:
+        """
+        if len(can_delete_files) > 0:
+            # 执行删除相关
+            delete_list = Cleaner.delete_files(can_delete_files)
+            self.write_log("Success deleted files (count:" + str(len(delete_list)) + "):")
+            self.write_log(json.dumps(delete_list) + "\n")
 
         else:
-            self.write_log("disk usage " + str(usage) + "% , Do not need to delete any file.")
-
-        pass
+            self.write_log("Can delete files is 0.  ~_~ !")
 
     def start(self):
         """
@@ -163,21 +151,21 @@ class Cleaner:
             now_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f  ')  # 现在
 
             f.write("--start-----------------------------------------\n")
+            f.write("_filename : " + self._filename + "\n")
+            f.write("path: " + self.path + "\n")
             f.write("start_disk_cleaner_log at " + now_time + "\n")
 
             f.write("Total:" + str(Cleaner.disk_total(self.path) / 1024 / 1024 / 1024) + "GB ")
             f.write("   Free:" + str(Cleaner.disk_free(self.path) / 1024 / 1024 / 1024) + "GB ")
             f.write("   Used:" + str(Cleaner.disk_used(self.path) / 1024 / 1024 / 1024) + "GB \n")
             f.write("Usage:" + str(usage) + "% \n")
-            f.write("-------------------------------------------end--\n \n")
+            f.write("-------------------------------------------end--\n")
 
             f.close()
 
         file_list = self.get_file_list(["json", "log"])
-        json_str = json.dumps(file_list)
-
         self.write_log("The folder is '" + self.path + "'")
-        self.write_log("All files (count:" + str(file_list.__len__()) + "): \n" + json_str + "\n")
+        self.write_log("Files(" + str(len(file_list)) + ")\n")
 
     def stop(self):
         """
@@ -185,6 +173,35 @@ class Cleaner:
         :return:
         """
         pass
+
+    @staticmethod
+    def get_first_day_of_pre_month(time):
+        """
+        获取指定时间的前一个月的最后一天
+        :param time:
+        :return: pre_month_last_day 前一个月的最后一天
+        """
+        # 求该月第一天
+        first_day = datetime.date(time.year, time.month, 1)
+        # 求前一个月的第一天
+        pre_month_last_day = first_day - datetime.timedelta(days=1)  # timedelta是一个不错的函数
+        # 前一个月的第一天
+        first_day_of_pre_month = datetime.date(pre_month_last_day.year, pre_month_last_day.month, 1)
+        return first_day_of_pre_month
+
+    @staticmethod
+    def get_first_day_of_next_month(time):
+        """
+
+        :param time:
+        :return:
+        """
+        # 求该月第一天
+        first_day = datetime.date(time.year, time.month, 1)
+        # 求后一个月的第一天
+        days_num = calendar.monthrange(first_day.year, first_day.month)[1]  # 获取一个月有多少天
+        first_day_of_next_month = first_day + datetime.timedelta(days=days_num)  # 当月的最后一天只需要days_num-1即可
+        return first_day_of_next_month
 
     @staticmethod
     def delete_files(file_list):
@@ -228,20 +245,56 @@ class Cleaner:
         return flag
 
     @staticmethod
-    def has_substring(substring, filename):
+    def has_substring(flags, filename):
         """
-        :param substring: 子字符串
+        :param flags: 一些子字符串
         :param filename: 文件名
-        :return: True   False
+        :return: True Or False
         """
-        flag = False
-        for item_string in substring:
-            if item_string in filename:
-                flag = True
-            if flag:
-                break
+        for item_flag in flags:
+            if item_flag in filename:
+                return True
+        return False
 
-        return flag
+    @staticmethod
+    def except_extension(file_names, extensions=[]):
+        """
+         指定扩展名除外
+        :param file_names
+        :param extensions:一些扩展名
+        :return: 过滤后的文件名列表
+        """
+        file_list = []
+        if len(file_names) > 0:
+            for fn in file_names:
+                if len(extensions) > 0:
+                    #  指定扩展名除外
+                    if not Cleaner.has_extensions(extensions, fn):
+                        file_list.append(fn)
+                else:
+                    # 默认直接返回所有文件名
+                    file_list.append(fn)
+        return file_list
+
+    @staticmethod
+    def except_flags(file_names, flags=[]):
+        """
+         指定扩展名除外
+        :param file_names
+        :param flags:一些字符串
+        :return: 过滤后的文件名列表
+        """
+        file_list = []
+        if len(file_names) > 0:
+            for fn in file_names:
+                if len(flags) > 0:
+                    #  包含指定字符的除外
+                    if not Cleaner.has_substring(flags, fn):
+                        file_list.append(fn)
+                else:
+                    # 默认直接返回所有文件名
+                    file_list.append(fn)
+        return file_list
 
     @staticmethod
     def disk_total(path):
@@ -292,7 +345,7 @@ class Cleaner:
         total = (st.f_blocks * st.f_frsize)
         used = (st.f_blocks - st.f_bfree) * st.f_frsize
         try:
-            percent = ret = (float(used) / total) * 100
+            percent = (float(used) / total) * 100
         except ZeroDivisionError:
             percent = 0
 

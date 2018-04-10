@@ -14,7 +14,7 @@
 # server as the sensor name.
 #
 # (default: not specified)
-#sensor_name=myhostname
+sensor_name=cowrie-lwp-mac
 
 # Hostname for the honeypot. Displayed by the shell prompt of the virtual
 # environment
@@ -359,6 +359,15 @@ listen_endpoints = tcp:2223:interface=0.0.0.0
 #
 [output_jsonlog]
 logfile = log/cowrie.json
+
+# clean log files to free disk module
+# added by luweiping
+#
+[output_cleanlog]
+logfile = log/cleanlog.log
+free_percent = 80
+# 两次检查最少间隔 多少 分钟  例如 30 分钟
+check_span_minutes = 1
 
 
 # Supports logging to Elasticsearch

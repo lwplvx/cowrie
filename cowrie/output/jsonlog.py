@@ -41,7 +41,6 @@ import cowrie.core.output
 import cowrie.python.logfile
 
 from cowrie.core.config import CONFIG
-from cowrie.files.cleaner import Cleaner
 
 
 class Output(cowrie.core.output.Output):
@@ -55,7 +54,6 @@ class Output(cowrie.core.output.Output):
         dirs = os.path.dirname(fn)
         base = os.path.basename(fn)
         self.outfile = cowrie.python.logfile.CowrieDailyLogFile(base, dirs, defaultMode=0o664)
-        self.cleaner = Cleaner(dirs)
 
     def start(self):
         """
@@ -72,12 +70,6 @@ class Output(cowrie.core.output.Output):
         """
 
         """
-        # 我的更改开始
-
-        self.cleaner.check_disk(85)
-
-        # 我的更改结束，从这里往下是原来的内容
-
         for i in list(logentry.keys()):
             # Remove twisted 15 legacy keys
             if i.startswith('log_'):
@@ -87,7 +79,4 @@ class Output(cowrie.core.output.Output):
         json.dump(logentry, self.outfile)
         self.outfile.write('\n')
         self.outfile.flush()
-
-        # json_msg = json.dumps(logentry)
-        # self.cleaner.write_log("testing on function write: " + json_msg)
 

@@ -1,10 +1,8 @@
 # -* - coding: UTF-8 -* -
-
+import datetime
 import os
+import random
 import shutil
-
-import cowrie
-from cowrie.core.config import CONFIG
 
 
 class diskM:
@@ -31,12 +29,63 @@ class diskM:
         json_file_name = "cowrie.json"
         log_file_name = "cowrie.log"
 
-        for num in range(15):
+        for num in range(12):
             src_file = file_path + "/" + json_file_name
-            self.copy_file(src_file, src_file + "_2018-04-08_" + str(num))
+            self.copy_file(src_file, src_file + "_2018-02-08_" + str(num))
 
             src_file = file_path + "/" + log_file_name
             self.copy_file(src_file, src_file + "_2018-03-08_" + str(num))
+
+    def generate_days_log(self, days):
+        """
+
+        :return:
+        """
+        file_path = "/Users/luweiping/PycharmProjects/cowrie/log"
+
+        json_file_name = "data_120m.json"
+        log_file_name = "data_120m.log"
+        src_file_json = file_path + "/" + json_file_name
+        src_file_log = file_path + "/" + log_file_name
+
+        date = datetime.datetime.now() - datetime.timedelta(days=2)
+        for num in range(days):
+            date_str = date.strftime('.%Y-%m-%d')
+            self.copy_file(src_file_json, file_path+"/cowrie.json" + date_str)
+            self.copy_file(src_file_log, file_path+"/cowrie.log" + date_str)
+            date = date - datetime.timedelta(days=1)  # 减少一天 timedelta是一个不错的函数
+
+    def genSizeFile(self, fileName, fileSize):
+        # file path
+        root_path = "/Users/luweiping/PycharmProjects/cowrie/log"
+        filePath = root_path + "/Data" + fileName + ".txt"
+
+        # 生成固定大小的文件
+        # date size
+        ds = 0
+        with open(filePath, "w") as f:
+            while ds < fileSize:
+                f.write(str(round(random.uniform(-1000, 1000), 2)))
+                f.write("\n")
+                ds = os.path.getsize(filePath)
+        # print(os.path.getsize(filePath))
+
+    @staticmethod
+    def pre_month_last_day(time):
+        """
+        获取指定时间的前一个月的最后一天
+        :param time:
+        :return: pre_month_last_day 前一个月的最后一天
+        """
+        # 求该月第一天
+        first_day = datetime.date(time.year, time.month, 1)
+
+        # 求前一个月的第一天
+        pre_month_last_day = first_day - datetime.timedelta(days=1)  # timedelta是一个不错的函数
+
+        # 前一个月的第一天
+        # first_day_of_pre_month = datetime.date(pre_month.year, pre_month.month, 1)
+        return pre_month_last_day
 
     def dirlist(self):
         """
@@ -67,4 +116,7 @@ class diskM:
 
 diskm = diskM()
 
-diskm.test()
+diskm.generate_days_log(55)
+
+# genSizeFile("1k",1*1024)
+# diskm.genSizeFile("_50M_", 1 * 1024*1024*50)
