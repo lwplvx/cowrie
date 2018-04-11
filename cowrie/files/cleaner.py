@@ -22,9 +22,8 @@ class Cleaner:
         :param path:
         :return:
         """
-
         self.path = path
-        self._filename = self.path + "/" + fn
+        self._filename = os.path.join(self.path, fn)
 
     def get_file_list(self, flags):
         """
@@ -63,10 +62,7 @@ class Cleaner:
 
     def check_disk(self, free_percent):
         """
-        删除一个月 检查一次剩余空间，满足条件就停止
-        检查磁盘剩余空间，删除时间久的文件
-        保证磁盘剩余可用剩余量在  如：35%（这个看情况调整）以上
-
+        检查磁盘剩余空间，删除时间久的文件，删除处理指定天数之内的数据
         :param free_percent 希望保持的剩余空间的百分比
         :return:
         """
@@ -77,20 +73,57 @@ class Cleaner:
 
         # 如果剩余用量不满足条件
         if not self.is_free_percent_ok(free_percent):
-            # 时间，往前推 500 天 开始找文件
+            except_days = 500
+            days_step = 50
             now = datetime.datetime.now()
-            today = datetime.date(now.year, now.month, now.day)
-            pre_500_days = now - datetime.timedelta(days=500)
-            first_day_of_delete_month = Cleaner.get_first_day_of_pre_month(pre_500_days)
-            while (not self.is_free_percent_ok(free_percent)) and first_day_of_delete_month < today:
-                self.delete_one_month(first_day_of_delete_month)
-                first_day_of_delete_month = Cleaner.get_first_day_of_next_month(first_day_of_delete_month)
+            # 这个日期之前的文件可以删除
+            pre_date = now - datetime.timedelta(days=except_days)
+            # 获取文件名符合特征的文件
+            file_list = self.get_file_list([".json.", ".log."])
+            is_exit = False
+            while (not self.is_free_percent_ok(free_percent)) and pre_date <= now:
+                delete_files = self.get_files_before_time(pre_date, file_list)
 
-            usage = Cleaner.disk_usage(self.path)
-            self.write_log("After deleted, disk usage is " + str(usage) + "% , ^_^ \n")
-        else:
-            usage = Cleaner.disk_usage(self.path)
-            self.write_log("Checking done! disk usage " + str(usage) + "% , Do not to delete any file.\n")
+                print("delete_files ", delete_files)
+                if delete_files.__len__() > 0:
+                    self.write_log("The folder is '" + self.path + "'")
+                    self.write_log("Try to delete files before  " + pre_date.strftime("%Y-%m-%d %H:%M:%S.%f"))
+                    self.write_log("The files count:" + str(len(delete_files)))
+                    success_delete_files = self.delete_files(delete_files)
+                    self.write_log("Success deleted files: " + json.dumps(success_delete_files) + ", ^_^ \n")
+                pre_date = pre_date + datetime.timedelta(days=days_step)
+                if is_exit:
+                    break
+                if pre_date >= now:
+                    pre_date = now
+                    is_exit = True
+
+        usage = Cleaner.disk_usage(self.path)
+        self.write_log("Checking done! disk usage " + str(usage) + "%\n")
+
+    @staticmethod
+    def get_files_before_time(before_time, file_list):
+        """
+
+        :param before_time:
+        :param file_list:
+        :return: before_list
+        """
+        # os.path.getmtime(name) ＃获取文件的修改时间
+        # os.stat(path).st_mtime＃获取文件的修改时间
+        # os.stat(path).st_ctime  # 获取文件修改时间
+        # os.path.getctime(name)  # 获取文件的创建时间
+        # datetime.datetime.fromtimestamp()  # 将os.path.getctime() 转换为跟datetime.datetime.now()一样的格式，以进行比较计算
+        before_list = []
+        for fn in file_list:
+            # 用文件创建时间来对比
+            # if datetime.datetime.fromtimestamp(os.path.getatime(fn)) < before_time:
+            #     before_list.append(fn)
+            # 用文件名作对比 （测试用）
+            if datetime.datetime.fromtimestamp(os.path.getatime(fn)) < before_time:
+                before_list.append(fn)
+
+        return before_list
 
     def is_free_percent_ok(self, free_percent):
         """
@@ -112,7 +145,6 @@ class Cleaner:
         :return:
         """
         date_flag = first_day_of_month.strftime('%Y-%m')
-        print(date_flag, "   date_flag  115 ")
 
         file_list = self.get_file_list([date_flag])
 
@@ -128,7 +160,6 @@ class Cleaner:
         """
 
         :param can_delete_files:
-        :param file_list:
         :return:
         """
         if len(can_delete_files) > 0:

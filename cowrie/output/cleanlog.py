@@ -62,6 +62,7 @@ class Output(cowrie.core.output.Output):
         print(time_span_seconds)
         check_span_seconds = int(60*check_span_minutes)
         print(check_span_seconds)
+
         # 如果间隔大于 指定的 分钟 就 开启一次检查
         if time_span_seconds > check_span_seconds:
             t = threading.Thread(target=self.do_check,

@@ -365,9 +365,9 @@ logfile = log/cowrie.json
 #
 [output_cleanlog]
 logfile = log/cleanlog.log
-free_percent = 80
+free_percent = 75
 # 两次检查最少间隔 多少 分钟  例如 30 分钟
-check_span_minutes = 1
+check_span_minutes = 5
 
 
 # Supports logging to Elasticsearch

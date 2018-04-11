@@ -43,8 +43,8 @@ class diskM:
         """
         file_path = "/Users/luweiping/PycharmProjects/cowrie/log"
 
-        json_file_name = "data_120m.json"
-        log_file_name = "data_120m.log"
+        json_file_name = "data_10m.json"
+        log_file_name = "data_10m.log"
         src_file_json = file_path + "/" + json_file_name
         src_file_log = file_path + "/" + log_file_name
 
@@ -116,7 +116,7 @@ class diskM:
 
 diskm = diskM()
 
-diskm.generate_days_log(55)
+diskm.generate_days_log(1000)
 
 # genSizeFile("1k",1*1024)
-# diskm.genSizeFile("_50M_", 1 * 1024*1024*50)
+# diskm.genSizeFile("_2M_", 1 * 1024*1024*2)
